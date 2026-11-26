@@ -1,0 +1,40 @@
+name: Build APK from zip
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Extract zip and build
+        run: |
+          set -e
+          ZIP=$(ls *.zip | head -n1)
+          mkdir app
+          unzip -q "$ZIP" -d app
+          APPDIR=$(dirname "$(find app -name package.json -not -path '*/node_modules/*' | head -n1)")
+          cd "$APPDIR"
+          npm install
+          npx cap add android
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+          cd "$GITHUB_WORKSPACE"
+          cp "$APPDIR/android/app/build/outputs/apk/debug/app-debug.apk" Insane-AI-Free.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Insane-AI Free v${{ github.run_number }}
+          files: Insane-AI-Free.apk
